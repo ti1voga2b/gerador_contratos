@@ -9,6 +9,8 @@ use FPDF;
 
 final class ContractPdfGenerator
 {
+    private const PLAN_ROWS_PER_PAGE = 24;
+
     private PlanRepository $planRepository;
     private string $templateDir;
 
@@ -31,12 +33,23 @@ final class ContractPdfGenerator
         $commercialTerms = trim((string) ($payload['commercial_terms'] ?? ''));
 
         $planRows = $this->buildPlanRows($clientData, $selectedPlans);
-        $pdf = new FPDF('P', 'mm', 'A4');
+        $pdf = new class('P', 'mm', 'A4') extends FPDF {
+            public function Footer(): void
+            {
+                $label = iconv('UTF-8', 'windows-1252//TRANSLIT//IGNORE', 'Pagina ' . $this->PageNo() . ' de {nb}');
+                $this->SetY(-12);
+                $this->SetFont('Arial', '', 8);
+                $this->SetTextColor(237, 94, 91);
+                $this->Cell(0, 5, $label !== false ? $label : 'Pagina ' . $this->PageNo() . ' de {nb}', 0, 0, 'C');
+            }
+        };
+        $pdf->AliasNbPages();
         $pdf->SetAutoPageBreak(false);
         $pdf->SetMargins(0, 0, 0);
 
         $this->addCoverPage($pdf);
         $this->addProposalPage($pdf, $clientData, $operator, $fidelity, $commercialTerms, $planRows);
+        $this->addPlanDetailPages($pdf, $planRows);
         $this->addStaticPage($pdf, 3);
         $this->addStaticPage($pdf, 4);
         $this->addStaticPage($pdf, 5);
@@ -79,12 +92,12 @@ final class ContractPdfGenerator
             $this->writeFieldLabel($document, $left, 65, 'CNPJ:');
             $this->writeFieldLabel($document, $left, 74, 'Endereco:');
             $this->writeFieldLabel($document, $left, 83, 'Bairro:');
-            $this->writeFieldLabel($document, 73, 83, 'Cidade:');
-            $this->writeFieldLabel($document, 112, 83, 'Estado:');
-            $this->writeFieldLabel($document, 141, 83, 'CEP:');
-            $this->writeFieldLabel($document, $left, 92, 'Telefone:');
-            $this->writeFieldLabel($document, 73, 92, 'E-mail:');
-            $this->writeFieldLabel($document, $left, 105, 'Operadora:');
+            $this->writeFieldLabel($document, 123, 83, 'Cidade:');
+            $this->writeFieldLabel($document, 112, 92, 'Estado:');
+            $this->writeFieldLabel($document, $left, 92, 'CEP:');
+            $this->writeFieldLabel($document, 73, 92, 'Telefone:');
+            $this->writeFieldLabel($document, $left, 101, 'E-mail:');
+            $this->writeFieldLabel($document, $left, 114, 'Operadora:');
 
             $document->SetTextColor(90, 90, 90);
             $document->SetFont('Arial', '', $smallFont);
@@ -96,89 +109,62 @@ final class ContractPdfGenerator
             $document->Cell(135, 5, $this->normalize((string) ($clientData['clientAddress'] ?? '')), 0, 0);
             $document->SetXY(34, 83);
             $document->Cell(30, 5, $this->normalize((string) ($clientData['clientNeighborhood'] ?? '')), 0, 0);
-            $document->SetXY(87, 83);
+            $document->SetXY(137, 83);
             $document->Cell(25, 5, $this->normalize((string) ($clientData['clientCity'] ?? '')), 0, 0);
-            $document->SetXY(126, 83);
+            $document->SetXY(126, 92);
             $document->Cell(12, 5, $this->normalize((string) ($clientData['clientState'] ?? '')), 0, 0);
-            $document->SetXY(151, 83);
-            $document->Cell(20, 5, $this->normalize((string) ($clientData['clientCEP'] ?? '')), 0, 0);
-            $document->SetXY(39, 92);
-            $document->Cell(30, 5, $this->normalize((string) ($clientData['clientPhone'] ?? '')), 0, 0);
-            $document->SetXY(87, 92);
-            $document->Cell(70, 5, $this->normalize((string) ($clientData['clientEmail'] ?? '')), 0, 0);
-            $document->SetXY(41, 105);
+            $document->SetXY(29, 92);
+            $document->Cell(25, 5, $this->normalize((string) ($clientData['clientCEP'] ?? '')), 0, 0);
+            $document->SetXY(92, 92);
+            $document->Cell(35, 5, $this->normalize((string) ($clientData['clientPhone'] ?? '')), 0, 0);
+            $document->SetXY(35, 101);
+            $document->Cell(90, 5, $this->normalize((string) ($clientData['clientEmail'] ?? '')), 0, 0);
+            $document->SetXY(41, 114);
             $document->Cell(60, 5, $this->normalize($this->formatOperator($operator)), 0, 0);
 
             $document->SetTextColor(...$accent);
             $document->SetFont('Arial', 'B', 11);
-            $document->SetXY(0, 121);
+            $document->SetXY(0, 130);
             $document->Cell(210, 5, $this->normalize('LINHAS PARA PORTABILIDADES:'), 0, 0, 'C');
 
             $document->SetFont('Arial', 'B', 9.5);
-            $this->writeFieldLabel($document, $left, 131.5, 'Quantidade:');
+            $this->writeFieldLabel($document, $left, 140.5, 'Quantidade:');
             $document->SetTextColor(90, 90, 90);
             $document->SetFont('Arial', '', 9);
-            $document->SetXY(45, 131.5);
+            $document->SetXY(45, 140.5);
             $document->Cell(20, 5, (string) count($planRows), 0, 0);
 
             $document->SetTextColor(...$accent);
             $document->SetFont('Arial', 'B', 11);
-            $document->SetXY($left, 145);
-            $document->Cell(80, 5, $this->normalize('LINHAS E PLANOS:'), 0, 0);
-
+            $document->SetXY($left, 159);
+            $document->Cell(90, 5, $this->normalize('LINHAS E PLANOS:'), 0, 0);
             $document->SetTextColor(90, 90, 90);
-            $document->SetFont('Arial', '', 8.5);
-            $lineY = 134.0;
-            $lineHeight = 6.2;
-            foreach ($planRows as $rowIndex => $row) {
-                if ($rowIndex >= 7) {
-                    break;
-                }
-
-                $document->SetXY($left, 152 + ($rowIndex * $lineHeight));
-                $lineText = sprintf(
-                    '%d | %s | %s | %s',
-                    $rowIndex + 1,
-                    $this->normalize($row['number']),
-                    $this->normalize($row['plan']),
-                    $this->normalize($row['price'])
-                );
-                $document->Cell(165, 5, $lineText, 0, 0);
-            }
+            $document->SetFont('Arial', '', 9);
+            $document->SetXY($left, 168);
+            $document->MultiCell(160, 5, $this->normalize('O detalhamento completo das linhas e dos planos contratados segue nas paginas exclusivas logo apos esta proposta comercial.'), 0, 'L');
 
             $document->SetTextColor(...$accent);
             $document->SetFont('Arial', 'B', 9.5);
-            $this->writeFieldLabel($document, $left, 221, 'Observacoes:');
+            $this->writeFieldLabel($document, $left, 214, 'Observacoes:');
             $document->SetTextColor(90, 90, 90);
             $document->SetFont('Arial', '', 9);
-            $document->SetXY(46, 221);
+            $document->SetXY(46, 214);
             $document->MultiCell(130, 5, $this->normalize($commercialTerms !== '' ? $commercialTerms : 'Sem observacoes'), 0, 'L');
 
             $document->SetTextColor(...$accent);
             $document->SetFont('Arial', 'B', 9.5);
-            $this->writeFieldLabel($document, $left, 236, 'Fidelidade:');
+            $this->writeFieldLabel($document, $left, 233, 'Fidelidade:');
             $document->SetTextColor(90, 90, 90);
             $document->SetFont('Arial', '', 9);
-            $document->SetXY(45, 236);
+            $document->SetXY(45, 233);
             $document->Cell(60, 5, $this->normalize($this->formatFidelity($fidelity)), 0, 0);
 
             $document->SetTextColor(...$accent);
             $document->SetFont('Arial', 'B', 10.5);
-            $this->writeFieldLabel($document, $left, 249, 'Valor total do contrato:');
-            $document->SetXY(80, 249);
+            $this->writeFieldLabel($document, $left, 246, 'Valor total do contrato:');
+            $document->SetXY(80, 246);
             $document->Cell(60, 5, $this->normalize($this->formatCurrency($this->sumRows($planRows))), 0, 0);
-
-            if (count($planRows) > 7) {
-                $document->SetTextColor(90, 90, 90);
-                $document->SetFont('Arial', 'I', 8);
-                $document->SetXY(20.5, 257.0);
-                $document->Cell(0, 5, $this->normalize('Demais linhas serao listadas em pagina adicional ao final do contrato.'), 0, 0);
-            }
         });
-
-        if (count($planRows) > 7) {
-            $this->addAdditionalLinesPage($pdf, $planRows);
-        }
     }
 
     private function writeFieldLabel(FPDF $pdf, float $x, float $y, string $label): void
@@ -204,34 +190,65 @@ final class ContractPdfGenerator
     /**
      * @param array<int, array<string, string>> $planRows
      */
-    private function addAdditionalLinesPage(FPDF $pdf, array $planRows): void
+    private function addPlanDetailPages(FPDF $pdf, array $planRows): void
     {
-        $pdf->AddPage();
-        $pdf->SetAutoPageBreak(true, 20);
-        $pdf->SetMargins(20, 20, 20);
-        $pdf->SetFont('Arial', 'B', 14);
-        $pdf->SetTextColor(237, 94, 91);
-        $pdf->Cell(0, 10, $this->normalize('ANEXO - LINHAS E PLANOS ADICIONAIS'), 0, 1);
+        $pages = array_chunk($planRows, self::PLAN_ROWS_PER_PAGE);
 
-        $pdf->SetFont('Arial', '', 10);
-        $pdf->SetTextColor(80, 80, 80);
-        foreach ($planRows as $index => $row) {
-            if ($index < 7) {
-                continue;
-            }
-
-            $text = sprintf(
-                '%d | %s | %s | %s',
-                $index + 1,
-                $this->normalize($row['number']),
-                $this->normalize($row['plan']),
-                $this->normalize($row['price'])
-            );
-            $pdf->MultiCell(0, 7, $text, 0, 'L');
+        if ($pages === []) {
+            $pages = [[]];
         }
 
-        $pdf->SetAutoPageBreak(false);
-        $pdf->SetMargins(0, 0, 0);
+        foreach ($pages as $pageIndex => $rows) {
+            $this->addStaticPageFromAsset($pdf, 'page-lines.png', function (FPDF $document) use ($rows, $pageIndex): void {
+                $accent = [237, 94, 91];
+                $left = 20.5;
+
+                $document->SetFont('Arial', 'B', 9.5);
+                $document->SetXY($left, 58);
+                $document->Cell(15, 6, '#', 0, 0);
+                $document->Cell(42, 6, $this->normalize('Numero'), 0, 0);
+                $document->Cell(84, 6, $this->normalize('Plano'), 0, 0);
+                $document->Cell(30, 6, $this->normalize('Valor'), 0, 0);
+
+                $document->SetDrawColor(...$accent);
+                $document->Line($left, 64, 189, 64);
+
+                $document->SetTextColor(90, 90, 90);
+                $document->SetFont('Arial', '', 9);
+                $y = 69;
+
+                if ($rows === []) {
+                    $document->SetXY($left, $y);
+                    $document->Cell(140, 6, $this->normalize('Nenhuma linha encontrada para esta proposta.'), 0, 0);
+                    return;
+                }
+
+                foreach ($rows as $rowOffset => $row) {
+                    $index = ($pageIndex * self::PLAN_ROWS_PER_PAGE) + $rowOffset + 1;
+
+                    $document->SetXY($left, $y);
+                    $document->Cell(15, 6, (string) $index, 0, 0);
+                    $document->Cell(42, 6, $this->normalize($row['number']), 0, 0);
+                    $document->Cell(84, 6, $this->normalize($row['plan']), 0, 0);
+                    $document->Cell(30, 6, $this->normalize($row['price']), 0, 0, 'R');
+                    $y += 8.5;
+                }
+            });
+        }
+    }
+
+    /**
+     * @param callable(FPDF):void|null $overlay
+     */
+    private function addStaticPageFromAsset(FPDF $pdf, string $assetName, ?callable $overlay = null): void
+    {
+        $pagePath = $this->templateDir . '/' . $assetName;
+        $pdf->AddPage();
+        $pdf->Image($pagePath, 0, 0, 210, 297);
+
+        if ($overlay !== null) {
+            $overlay($pdf);
+        }
     }
 
     /**
@@ -243,12 +260,20 @@ final class ContractPdfGenerator
     {
         $rows = [];
         $lines = is_array($clientData['lines'] ?? null) ? $clientData['lines'] : [];
+        $seenNumbers = [];
 
         foreach ($lines as $index => $line) {
+            $number = is_array($line) ? trim((string) ($line['number'] ?? '')) : '';
+
+            if ($number === '' || isset($seenNumbers[$number])) {
+                continue;
+            }
+
+            $seenNumbers[$number] = true;
             $planId = isset($selectedPlans[$index]) ? (int) $selectedPlans[$index] : 0;
             $plan = $this->planRepository->findById($planId);
             $rows[] = [
-                'number' => is_array($line) ? (string) ($line['number'] ?? '') : '',
+                'number' => $number,
                 'plan' => is_array($plan) ? (string) ($plan['provider'] ?? 'Nao selecionado') : 'Nao selecionado',
                 'price' => $this->formatCurrency(is_array($plan) ? (float) ($plan['price'] ?? 0) : 0.0),
             ];
