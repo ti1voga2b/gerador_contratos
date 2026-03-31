@@ -10,6 +10,7 @@ use App\Models\PlanRepository;
 use App\Services\AuthService;
 use App\Services\ContractPdfGenerator;
 use App\Services\InvoiceParser;
+use Throwable;
 
 final class ContractController
 {
@@ -48,6 +49,7 @@ final class ContractController
 
         if (isset($_GET['reset']) && $_GET['reset'] === '1') {
             unset($_SESSION['extracted_data']);
+            $this->forgetFlash();
             header('Location: index.php');
             return;
         }
@@ -66,26 +68,21 @@ final class ContractController
             ? $_SESSION['extracted_data']
             : null;
 
-        if (isset($_FILES['invoice_txt']) && (int) $_FILES['invoice_txt']['error'] === UPLOAD_ERR_OK) {
-            $uploadValidationError = $this->validateUploadedInvoice($_FILES['invoice_txt']);
-            if ($uploadValidationError !== null) {
-                View::render('contracts/index', [
-                    'error' => $uploadValidationError,
-                    'extractedData' => null,
-                    'plans' => $this->planRepository->all(),
-                    'csrfToken' => Csrf::token(),
-                    'user' => $this->authService->user(),
-                ]);
-                return;
+        if (isset($_FILES['invoice_txt'])) {
+            $uploadError = $this->handleInvoiceUpload($_FILES['invoice_txt']);
+            if ($uploadError !== null) {
+                $this->flash('error', $uploadError);
+                $extractedData = null;
+            } else {
+                $extractedData = isset($_SESSION['extracted_data']) && is_array($_SESSION['extracted_data'])
+                    ? $_SESSION['extracted_data']
+                    : null;
             }
-
-            $extractedData = $this->invoiceParser->parseUploadedFile($_FILES['invoice_txt']['tmp_name']);
-            $_SESSION['extracted_data'] = $extractedData;
         }
 
         View::render('contracts/index', [
-            'error' => null,
             'extractedData' => $extractedData,
+            'flash' => $this->pullFlash(),
             'plans' => $this->planRepository->all(),
             'csrfToken' => Csrf::token(),
             'user' => $this->authService->user(),
@@ -119,20 +116,39 @@ final class ContractController
         $clientData = $_SESSION['extracted_data'] ?? null;
 
         if (!is_array($clientData) || $action !== 'generate_term') {
-            http_response_code(400);
-            echo 'Requisicao invalida.';
+            $this->flash('error', 'Sua sessao de importacao expirou. Envie a fatura novamente.');
+            header('Location: index.php');
             return;
         }
 
         $selectedPlans = is_array($_POST['selected_plans'] ?? null) ? $_POST['selected_plans'] : [];
-        $document = $this->contractPdfGenerator->generate([
-            'client_data' => $clientData,
-            'selected_plans' => $selectedPlans,
-            'operator' => (string) ($_POST['operator'] ?? ''),
-            'fidelity' => (string) ($_POST['fidelity'] ?? 'none'),
-            'commercial_terms' => (string) ($_POST['commercial_terms'] ?? ''),
-            'custom_sla' => isset($_POST['sla']),
-        ]);
+        if ($selectedPlans === []) {
+            $this->flash('error', 'Selecione pelo menos um plano antes de gerar o contrato.');
+            header('Location: index.php');
+            return;
+        }
+
+        try {
+            $document = $this->contractPdfGenerator->generate([
+                'client_data' => $clientData,
+                'selected_plans' => $selectedPlans,
+                'operator' => (string) ($_POST['operator'] ?? ''),
+                'fidelity' => (string) ($_POST['fidelity'] ?? 'none'),
+                'commercial_terms' => (string) ($_POST['commercial_terms'] ?? ''),
+                'custom_sla' => isset($_POST['sla']),
+            ]);
+        } catch (Throwable $exception) {
+            error_log(sprintf(
+                '[%s] Falha ao gerar contrato: %s em %s:%d',
+                date('c'),
+                $exception->getMessage(),
+                $exception->getFile(),
+                $exception->getLine()
+            ));
+            $this->flash('error', 'Nao foi possivel gerar o PDF agora. Verifique os dados enviados e tente novamente.');
+            header('Location: index.php');
+            return;
+        }
 
         header('Content-Type: application/pdf');
         header('Content-Disposition: attachment; filename="' . $document['filename'] . '"');
@@ -145,8 +161,53 @@ final class ContractController
             return;
         }
 
+        $this->flash('error', 'Sua sessao expirou. Atualize a pagina e tente novamente.');
         http_response_code(419);
-        exit('Token CSRF invalido.');
+        header('Location: index.php');
+        exit;
+    }
+
+    /**
+     * @param array<string, mixed> $uploadedFile
+     */
+    private function handleInvoiceUpload(array $uploadedFile): ?string
+    {
+        $phpUploadError = $this->uploadErrorMessage((int) ($uploadedFile['error'] ?? UPLOAD_ERR_NO_FILE));
+        if ($phpUploadError !== null) {
+            return $phpUploadError;
+        }
+
+        $uploadValidationError = $this->validateUploadedInvoice($uploadedFile);
+        if ($uploadValidationError !== null) {
+            return $uploadValidationError;
+        }
+
+        try {
+            $extractedData = $this->invoiceParser->parseUploadedFile((string) $uploadedFile['tmp_name']);
+        } catch (Throwable $exception) {
+            error_log(sprintf(
+                '[%s] Falha ao processar fatura: %s em %s:%d',
+                date('c'),
+                $exception->getMessage(),
+                $exception->getFile(),
+                $exception->getLine()
+            ));
+            return 'Nao foi possivel ler a fatura enviada. Confira se o arquivo esta integro e em formato TXT.';
+        }
+
+        if (!is_array($extractedData)) {
+            return 'Nao foi possivel interpretar a fatura enviada.';
+        }
+
+        $_SESSION['extracted_data'] = $extractedData;
+
+        if (($extractedData['lines'] ?? []) === []) {
+            $this->flash('warning', 'A fatura foi lida, mas nenhuma linha elegivel foi encontrada para montar o contrato.');
+        } else {
+            $this->flash('success', 'Fatura carregada com sucesso. Revise os dados e gere o contrato.');
+        }
+
+        return null;
     }
 
     /**
@@ -176,5 +237,43 @@ final class ContractController
         }
 
         return null;
+    }
+
+    private function uploadErrorMessage(int $errorCode): ?string
+    {
+        return match ($errorCode) {
+            UPLOAD_ERR_OK => null,
+            UPLOAD_ERR_NO_FILE => 'Selecione um arquivo TXT para continuar.',
+            UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'O arquivo excede o tamanho maximo permitido pelo servidor.',
+            UPLOAD_ERR_PARTIAL => 'O upload foi interrompido antes de terminar. Tente novamente.',
+            UPLOAD_ERR_NO_TMP_DIR => 'O servidor esta sem diretorio temporario para upload.',
+            UPLOAD_ERR_CANT_WRITE => 'O servidor nao conseguiu gravar o arquivo enviado.',
+            UPLOAD_ERR_EXTENSION => 'Uma extensao do PHP bloqueou o upload do arquivo.',
+            default => 'Falha inesperada ao enviar o arquivo.',
+        };
+    }
+
+    private function flash(string $type, string $message): void
+    {
+        $_SESSION['flash'] = [
+            'type' => $type,
+            'message' => $message,
+        ];
+    }
+
+    /**
+     * @return array<string, string>|null
+     */
+    private function pullFlash(): ?array
+    {
+        $flash = $_SESSION['flash'] ?? null;
+        unset($_SESSION['flash']);
+
+        return is_array($flash) ? $flash : null;
+    }
+
+    private function forgetFlash(): void
+    {
+        unset($_SESSION['flash']);
     }
 }

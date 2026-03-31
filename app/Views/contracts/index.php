@@ -35,9 +35,21 @@ $escape = static function ($value): string {
             </form>
         </header>
 
-        <?php if (!empty($error)): ?>
-            <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                <?= $escape($error) ?>
+        <?php if (!empty($flash['message'])): ?>
+            <?php
+            $toastType = $flash['type'] ?? 'error';
+            $toastClasses = match ($toastType) {
+                'success' => 'border-emerald-200 bg-emerald-50 text-emerald-800',
+                'warning' => 'border-amber-200 bg-amber-50 text-amber-800',
+                default => 'border-red-200 bg-red-50 text-red-700',
+            };
+            ?>
+            <div
+                id="app-toast"
+                class="mb-4 rounded-2xl border px-4 py-3 text-sm shadow-sm transition-opacity duration-300 <?= $toastClasses ?>"
+                role="alert"
+            >
+                <?= $escape($flash['message']) ?>
             </div>
         <?php endif; ?>
 
@@ -47,5 +59,22 @@ $escape = static function ($value): string {
             <?php require __DIR__ . '/partials/editor.php'; ?>
         <?php endif; ?>
     </div>
+
+    <script>
+        window.addEventListener('load', () => {
+            const toast = document.getElementById('app-toast');
+            if (!toast) {
+                return;
+            }
+
+            window.setTimeout(() => {
+                toast.classList.add('opacity-0');
+            }, 4500);
+
+            window.setTimeout(() => {
+                toast.remove();
+            }, 5000);
+        });
+    </script>
 </body>
 </html>
