@@ -86,7 +86,6 @@ final class ContractController
                     : null;
             }
         }
-
         View::render('contracts/index', [
             'extractedData' => $extractedData,
             'flash' => $this->flashService->pull(),

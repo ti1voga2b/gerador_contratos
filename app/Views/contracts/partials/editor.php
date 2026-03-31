@@ -67,6 +67,14 @@
                                                 <?= $escape($plan['provider']) ?> (R$ <?= $escape(number_format((float) $plan['price'], 2, ',', '.')) ?>)
                                             </option>
                                         <?php endforeach; ?>
+                                        <option
+                                            value="0"
+                                            data-network="cancelar"
+                                            data-price="00"
+                                            style="display:block"
+                                        >
+                                        Cancelar
+                                        </option>
                                     </select>
                                 </td>
                                 <td class="p-4 text-sm font-bold text-blue-600 text-right line-price">R$ 0,00</td>
@@ -98,7 +106,9 @@
                     return;
                 }
 
-                option.style.display = option.getAttribute('data-network') === network ? 'block' : 'none';
+                option.style.display = option.getAttribute('data-network') === network || option.getAttribute('data-network') === 'cancelar'
+                    ? 'block'
+                    : 'none';
             });
 
             const selected = select.options[select.selectedIndex];

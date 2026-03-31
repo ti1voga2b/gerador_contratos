@@ -271,6 +271,15 @@ final class ContractPdfGenerator
 
             $seenNumbers[$number] = true;
             $planId = isset($selectedPlans[$index]) ? (int) $selectedPlans[$index] : 0;
+            if ($planId === 0) {
+                $rows[] = [
+                    'number' => $number,
+                    'plan' => 'Cancelar',
+                    'price' => $this->formatCurrency(0.0),
+                ];
+                continue;
+            }
+
             $plan = $this->planRepository->findById($planId);
             $rows[] = [
                 'number' => $number,
