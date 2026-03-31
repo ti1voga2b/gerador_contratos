@@ -75,6 +75,10 @@
                     </tbody>
                     <tfoot class="bg-blue-50">
                         <tr>
+                            <td colspan="2" class="p-4 text-sm font-bold text-blue-900 text-right">TOTAL DE LINHAS:</td>
+                            <td id="lineCount" class="p-4 text-lg font-black text-blue-900 text-right"><?= count($extractedData['lines'] ?? []) ?></td>
+                        </tr>
+                        <tr>
                             <td colspan="2" class="p-4 text-sm font-bold text-blue-900 text-right">NOVO TOTAL MENSAL:</td>
                             <td id="grandTotal" class="p-4 text-lg font-black text-blue-900 text-right">R$ 0,00</td>
                         </tr>
