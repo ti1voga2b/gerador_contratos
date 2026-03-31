@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Core;
 
 use PDO;
+use RuntimeException;
 
 final class Database
 {
@@ -19,6 +20,12 @@ final class Database
         $storageDir = dirname(__DIR__, 2) . '/storage';
         if (!is_dir($storageDir)) {
             mkdir($storageDir, 0777, true);
+        }
+
+        if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
+            throw new RuntimeException(
+                'O driver PDO SQLite nao esta habilitado neste servidor. Instale/habilite a extensao pdo_sqlite/sqlite3 no PHP antes de iniciar a aplicacao.'
+            );
         }
 
         $databasePath = $storageDir . '/app.sqlite';

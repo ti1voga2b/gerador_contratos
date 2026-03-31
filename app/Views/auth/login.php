@@ -36,7 +36,7 @@ $escape = static function ($value): string {
             <input type="hidden" name="action" value="login">
             <div>
                 <label for="username" class="block text-sm font-medium text-slate-700 mb-1">Usuario</label>
-                <input id="username" name="username" type="text" required class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:border-slate-500 focus:outline-none" placeholder="admin">
+                <input id="username" name="username" type="text" required class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:border-slate-500 focus:outline-none" placeholder="Seu usuario">
             </div>
             <div>
                 <label for="password" class="block text-sm font-medium text-slate-700 mb-1">Senha</label>
@@ -46,11 +46,6 @@ $escape = static function ($value): string {
                 Entrar
             </button>
         </form>
-
-        <div class="mt-6 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            Usuario inicial: <strong>admin</strong><br>
-            Senha inicial: <strong>admin123</strong>
-        </div>
     </div>
 </body>
 </html>
