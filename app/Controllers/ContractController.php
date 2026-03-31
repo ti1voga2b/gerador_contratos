@@ -6,17 +6,20 @@ namespace App\Controllers;
 
 use App\Core\View;
 use App\Models\PlanRepository;
+use App\Services\AuthService;
 use App\Services\ContractPdfGenerator;
 use App\Services\InvoiceParser;
 
 final class ContractController
 {
+    private AuthService $authService;
     private PlanRepository $planRepository;
     private InvoiceParser $invoiceParser;
     private ContractPdfGenerator $contractPdfGenerator;
 
     public function __construct()
     {
+        $this->authService = new AuthService();
         $this->planRepository = new PlanRepository();
         $this->invoiceParser = new InvoiceParser();
         $this->contractPdfGenerator = new ContractPdfGenerator($this->planRepository, dirname(__DIR__, 2) . '/assets/pdf-template');
@@ -24,6 +27,22 @@ final class ContractController
 
     public function handleRequest(): void
     {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'login') {
+            $this->login();
+            return;
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'logout') {
+            $this->authService->logout();
+            header('Location: index.php');
+            return;
+        }
+
+        if (!$this->authService->check()) {
+            $this->showLogin();
+            return;
+        }
+
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $this->downloadDocument();
             return;
@@ -38,6 +57,27 @@ final class ContractController
         View::render('contracts/index', [
             'extractedData' => $extractedData,
             'plans' => $this->planRepository->all(),
+            'user' => $this->authService->user(),
+        ]);
+    }
+
+    private function login(): void
+    {
+        $username = trim((string) ($_POST['username'] ?? ''));
+        $password = (string) ($_POST['password'] ?? '');
+
+        if ($this->authService->attemptLogin($username, $password)) {
+            header('Location: index.php');
+            return;
+        }
+
+        $this->showLogin('Usuario ou senha invalidos.');
+    }
+
+    private function showLogin(?string $error = null): void
+    {
+        View::render('auth/login', [
+            'error' => $error,
         ]);
     }
 

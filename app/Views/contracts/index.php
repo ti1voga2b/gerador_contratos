@@ -23,9 +23,15 @@ $escape = static function ($value): string {
 </head>
 <body class="bg-slate-50 min-h-screen p-4 md:p-8">
     <div class="max-w-5xl mx-auto">
-        <header class="text-center mb-8">
-            <h1 class="text-3xl font-bold text-slate-900">Gerador de Contratos VOGA</h1>
-            <p class="text-slate-600">Versao PHP em MVC para TXT</p>
+        <header class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-8">
+            <div class="text-center md:text-left">
+                <h1 class="text-3xl font-bold text-slate-900">Gerador de Contratos VOGA</h1>
+                <p class="text-slate-600">Versao PHP em MVC para TXT</p>
+            </div>
+            <form action="" method="post" class="flex items-center justify-center gap-3">
+                <span class="text-sm text-slate-500">Logado como <strong><?= $escape($user['username'] ?? '') ?></strong></span>
+                <button type="submit" name="action" value="logout" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-700">Sair</button>
+            </form>
         </header>
 
         <?php if (!$extractedData): ?>
