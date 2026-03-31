@@ -8,7 +8,7 @@ use Throwable;
 
 final class InvoiceUploadService
 {
-    private const MAX_FILE_SIZE = 2097152;
+    private const MAX_FILE_SIZE = 10485760;
 
     public function __construct(
         private InvoiceParser $invoiceParser,
@@ -69,7 +69,7 @@ final class InvoiceUploadService
         $size = (int) ($uploadedFile['size'] ?? 0);
 
         if ($size <= 0 || $size > self::MAX_FILE_SIZE) {
-            return 'Envie um arquivo TXT de ate 2 MB.';
+            return 'Envie um arquivo TXT de ate 10 MB.';
         }
 
         if (!is_uploaded_file($tmpName)) {
