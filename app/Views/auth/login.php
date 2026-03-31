@@ -34,6 +34,7 @@ $escape = static function ($value): string {
 
         <form action="" method="post" class="space-y-4">
             <input type="hidden" name="action" value="login">
+            <input type="hidden" name="_csrf" value="<?= $escape($csrfToken ?? '') ?>">
             <div>
                 <label for="username" class="block text-sm font-medium text-slate-700 mb-1">Usuario</label>
                 <input id="username" name="username" type="text" required class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:border-slate-500 focus:outline-none" placeholder="Seu usuario">

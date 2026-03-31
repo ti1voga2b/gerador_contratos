@@ -28,7 +28,11 @@ final class Database
             );
         }
 
-        $databasePath = $storageDir . '/app.sqlite';
+        $databasePath = Env::get('DB_DATABASE', 'storage/app.sqlite');
+        $databasePath = str_starts_with($databasePath, '/')
+            ? $databasePath
+            : dirname(__DIR__, 2) . '/' . ltrim($databasePath, '/');
+
         $pdo = new PDO('sqlite:' . $databasePath);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
@@ -49,20 +53,5 @@ final class Database
                 created_at TEXT NOT NULL
             )'
         );
-
-        $stmt = $pdo->prepare('SELECT COUNT(*) FROM users WHERE username = :username');
-        $stmt->execute(['username' => 'admin']);
-
-        if ((int) $stmt->fetchColumn() === 0) {
-            $insert = $pdo->prepare(
-                'INSERT INTO users (username, password_hash, created_at)
-                 VALUES (:username, :password_hash, :created_at)'
-            );
-            $insert->execute([
-                'username' => 'admin',
-                'password_hash' => password_hash('admin123', PASSWORD_DEFAULT),
-                'created_at' => date('c'),
-            ]);
-        }
     }
 }

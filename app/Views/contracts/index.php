@@ -29,10 +29,17 @@ $escape = static function ($value): string {
                 <p class="text-slate-600">Versao PHP em MVC para TXT</p>
             </div>
             <form action="" method="post" class="flex items-center justify-center gap-3">
+                <input type="hidden" name="_csrf" value="<?= $escape($csrfToken ?? '') ?>">
                 <span class="text-sm text-slate-500">Logado como <strong><?= $escape($user['username'] ?? '') ?></strong></span>
                 <button type="submit" name="action" value="logout" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-700">Sair</button>
             </form>
         </header>
+
+        <?php if (!empty($error)): ?>
+            <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <?= $escape($error) ?>
+            </div>
+        <?php endif; ?>
 
         <?php if (!$extractedData): ?>
             <?php require __DIR__ . '/partials/upload.php'; ?>

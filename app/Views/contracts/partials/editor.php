@@ -1,5 +1,5 @@
 <form action="" method="post">
-    <input type="hidden" name="client_data" value='<?= $escape(json_encode($extractedData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>'>
+    <input type="hidden" name="_csrf" value="<?= $escape($csrfToken ?? '') ?>">
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-1 space-y-6">
@@ -37,7 +37,7 @@
                     <label for="slaCheck" class="text-sm text-slate-700">Incluir SLA Customizado</label>
                 </div>
                 <button type="submit" name="action" value="generate_term" class="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 shadow-md transition-all">GERAR CONTRATO (PDF)</button>
-                <a href="index.php" class="block text-center text-sm text-slate-500 hover:underline">Carregar outra fatura</a>
+                <a href="index.php?reset=1" class="block text-center text-sm text-slate-500 hover:underline">Carregar outra fatura</a>
             </div>
         </div>
 
