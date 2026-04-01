@@ -60,20 +60,38 @@ $escape = static function ($value): string {
         <?php endif; ?>
     </div>
 
+    <?php if (!empty($autoDownload)): ?>
+        <iframe id="download-frame" class="hidden" title="download"></iframe>
+    <?php endif; ?>
+
     <script>
         window.addEventListener('load', () => {
             const toast = document.getElementById('app-toast');
             if (!toast) {
-                return;
+                if (!<?= !empty($autoDownload) ? 'true' : 'false' ?>) {
+                    return;
+                }
             }
 
-            window.setTimeout(() => {
-                toast.classList.add('opacity-0');
-            }, 4500);
+            if (toast) {
+                window.setTimeout(() => {
+                    toast.classList.add('opacity-0');
+                }, 4500);
 
-            window.setTimeout(() => {
-                toast.remove();
-            }, 5000);
+                window.setTimeout(() => {
+                    toast.remove();
+                }, 5000);
+            }
+
+            if (<?= !empty($autoDownload) ? 'true' : 'false' ?>) {
+                const cleanUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+
+                const frame = document.getElementById('download-frame');
+                if (frame) {
+                    frame.src = 'index.php?download_file=1';
+                }
+            }
         });
     </script>
 </body>

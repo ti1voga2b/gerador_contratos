@@ -36,6 +36,8 @@ final class ContractController
 
     public function handleRequest(): void
     {
+        $autoDownload = false;
+
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'login') {
             $this->ensureValidCsrf();
             $this->login();
@@ -45,7 +47,7 @@ final class ContractController
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'logout') {
             $this->ensureValidCsrf();
             $this->authService->logout();
-            header('Location: index.php');
+            $this->redirect('index.php');
             return;
         }
 
@@ -54,10 +56,25 @@ final class ContractController
             return;
         }
 
+        if (isset($_GET['download_file']) && $_GET['download_file'] === '1') {
+            $this->contractDownloadService->streamPending();
+            return;
+        }
+
+        if (isset($_GET['download']) && $_GET['download'] === '1') {
+            if (!$this->contractDownloadService->hasPending()) {
+                $this->flashService->put('error', 'Nenhum arquivo esta pronto para download no momento.');
+                $this->redirect('index.php');
+                return;
+            }
+
+            $autoDownload = true;
+        }
+
         if (isset($_GET['reset']) && $_GET['reset'] === '1') {
             unset($_SESSION['extracted_data']);
             $this->flashService->forget();
-            header('Location: index.php');
+            $this->redirect('index.php');
             return;
         }
 
@@ -67,7 +84,7 @@ final class ContractController
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $this->ensureValidCsrf();
-            $this->contractDownloadService->download($_POST);
+            $this->contractDownloadService->queue($_POST);
             return;
         }
 
@@ -79,14 +96,14 @@ final class ContractController
             $uploadError = $this->invoiceUploadService->handle($_FILES['invoice_txt']);
             if ($uploadError !== null) {
                 $this->flashService->put('error', $uploadError);
-                $extractedData = null;
-            } else {
-                $extractedData = isset($_SESSION['extracted_data']) && is_array($_SESSION['extracted_data'])
-                    ? $_SESSION['extracted_data']
-                    : null;
             }
+
+            $this->redirect('index.php');
+            return;
         }
+
         View::render('contracts/index', [
+            'autoDownload' => $autoDownload,
             'extractedData' => $extractedData,
             'flash' => $this->flashService->pull(),
             'plans' => $this->planRepository->all(),
@@ -101,18 +118,19 @@ final class ContractController
         $password = (string) ($_POST['password'] ?? '');
 
         if ($this->authService->attemptLogin($username, $password)) {
-            header('Location: index.php');
+            $this->redirect('index.php');
             return;
         }
 
-        $this->showLogin('Usuario ou senha invalidos.');
+        $this->flashService->put('error', 'Usuario ou senha invalidos.');
+        $this->redirect('index.php');
     }
 
-    private function showLogin(?string $error = null): void
+    private function showLogin(): void
     {
         View::render('auth/login', [
             'csrfToken' => Csrf::token(),
-            'error' => $error,
+            'flash' => $this->flashService->pull(),
         ]);
     }
 
@@ -123,8 +141,12 @@ final class ContractController
         }
 
         $this->flashService->put('error', 'Sua sessao expirou. Atualize a pagina e tente novamente.');
-        http_response_code(419);
-        header('Location: index.php');
+        $this->redirect('index.php');
         exit;
+    }
+
+    private function redirect(string $location): void
+    {
+        header('Location: ' . $location, true, 303);
     }
 }
