@@ -58,10 +58,12 @@ final class ContractTermGenerator
         $clientLines = is_array($clientData['lines'] ?? null) ? $clientData['lines'] : [];
 
         foreach ($clientLines as $index => $line) {
-            $planId = isset($selectedPlans[$index]) ? (int) $selectedPlans[$index] : 0;
-            $plan = $this->planRepository->findById($planId);
-            $planName = $plan['provider'] ?? 'Nao selecionado';
-            $planPrice = isset($plan['price']) ? (float) $plan['price'] : 0.0;
+            $selection = isset($selectedPlans[$index]) ? trim((string) $selectedPlans[$index]) : '';
+            $plan = $selection === '' || $selection === '0'
+                ? null
+                : $this->planRepository->findBySelection($selection);
+            $planName = $selection === '0' ? 'Cancelar' : ($plan['provider'] ?? 'Nao selecionado');
+            $planPrice = $selection === '0' ? 0.0 : (isset($plan['price']) ? (float) $plan['price'] : 0.0);
             $totalNew += $planPrice;
             $number = is_array($line) ? (string) ($line['number'] ?? '') : '';
 

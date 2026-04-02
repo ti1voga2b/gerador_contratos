@@ -270,8 +270,8 @@ final class ContractPdfGenerator
             }
 
             $seenNumbers[$number] = true;
-            $planId = isset($selectedPlans[$index]) ? (int) $selectedPlans[$index] : 0;
-            if ($planId === 0) {
+            $selection = isset($selectedPlans[$index]) ? trim((string) $selectedPlans[$index]) : '';
+            if ($selection === '' || $selection === '0') {
                 $rows[] = [
                     'number' => $number,
                     'plan' => 'Cancelar',
@@ -280,7 +280,7 @@ final class ContractPdfGenerator
                 continue;
             }
 
-            $plan = $this->planRepository->findById($planId);
+            $plan = $this->planRepository->findBySelection($selection);
             $rows[] = [
                 'number' => $number,
                 'plan' => is_array($plan) ? (string) ($plan['provider'] ?? 'Nao selecionado') : 'Nao selecionado',

@@ -60,7 +60,7 @@
                                         <option value="">Selecione um plano...</option>
                                         <?php foreach ($plans as $plan): ?>
                                             <option
-                                                value="<?= (int) $plan['id'] ?>"
+                                                value="<?= $escape($plan['network'] . ':' . $plan['id']) ?>"
                                                 data-network="<?= $escape($plan['network']) ?>"
                                                 data-price="<?= $escape($plan['price']) ?>"
                                             >
