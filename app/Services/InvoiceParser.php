@@ -73,9 +73,10 @@ final class InvoiceParser
                 }
             }
 
-            if (preg_match('/N(\d{2}-\d{5}-\d{4})/', $line, $matches)) {
+            $lineNumber = $this->extractLineNumber($line);
+            if ($lineNumber !== null) {
                 $extractedLines[] = [
-                    'number' => $matches[1],
+                    'number' => $lineNumber,
                     'plan' => 'Extraido do TXT',
                     'value' => 0,
                 ];
@@ -138,6 +139,44 @@ final class InvoiceParser
         }
 
         return substr($cep, 0, 5) . '-' . substr($cep, 5);
+    }
+
+    private function extractLineNumber(string $line): ?string
+    {
+        if (preg_match('/^\d{10}\s+\d{10}\s+(\d{10,11})\s+/', $line, $matches)) {
+            return $this->normalizeLineNumber($matches[1]);
+        }
+
+        if (preg_match('/N(\d{2}-\d{5}-\d{4})/', $line, $matches)) {
+            return $this->normalizeLineNumber($matches[1]);
+        }
+
+        return null;
+    }
+
+    private function normalizeLineNumber(string $number): string
+    {
+        $digits = preg_replace('/\D+/', '', $number) ?? '';
+
+        if (strlen($digits) === 11) {
+            return sprintf(
+                '%s-%s-%s',
+                substr($digits, 0, 2),
+                substr($digits, 2, 5),
+                substr($digits, 7, 4)
+            );
+        }
+
+        if (strlen($digits) === 10) {
+            return sprintf(
+                '%s-%s-%s',
+                substr($digits, 0, 2),
+                substr($digits, 2, 4),
+                substr($digits, 6, 4)
+            );
+        }
+
+        return trim($number);
     }
 
     /**
